@@ -3,75 +3,184 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mini Empire Online</title>
+  <title>Mini Empire - Multiplayer Strategy</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="menu" class="screen active">
-    <div class="menu-container">
-      <h1 class="title">MINI EMPIRE</h1>
-      <p class="subtitle">Conquer the battlefield</p>
-      <div class="input-group">
-        <input type="text" id="playerName" placeholder="Enter your name" maxlength="15">
-        <button id="joinBtn" class="btn btn-primary">JOIN BATTLE</button>
+  <div id="app">
+    <!-- MENU SCREEN -->
+    <div id="menu" class="screen active">
+      <div class="menu-bg">
+        <div class="particles"></div>
       </div>
-      <div id="menuStatus" class="status"></div>
-    </div>
-  </div>
-
-  <div id="lobby" class="screen">
-    <div class="lobby-container">
-      <h2>WAITING FOR PLAYERS</h2>
-      <div id="lobbyPlayers" class="lobby-players"></div>
-      <div id="lobbyStatus" class="status"></div>
-    </div>
-  </div>
-
-  <div id="game" class="screen">
-    <div class="game-container">
-      <div class="top-bar">
-        <div class="player-info">
-          <span id="playerNameDisplay" class="player-name"></span>
-          <span id="playerStats" class="player-stats"></span>
+      <div class="menu-container">
+        <div class="logo-section">
+          <h1 class="title">
+            <span class="title-icon">⚔️</span>
+            MINI EMPIRE
+          </h1>
+          <p class="subtitle">Conquer • Build • Dominate</p>
         </div>
-        <div class="game-timer">
-          <span id="timer">5:00</span>
-        </div>
-      </div>
 
-      <canvas id="gameCanvas"></canvas>
-
-      <div class="bottom-bar">
-        <div id="selectionInfo" class="selection-info hidden">
-          <span id="selectedBaseInfo"></span>
-          <div class="action-buttons">
-            <button id="upgradeBtn" class="btn btn-upgrade">UPGRADE (U)</button>
+        <div class="login-card">
+          <div class="login-header">
+            <h2>Player Profile</h2>
+          </div>
+          <div class="login-body">
+            <div class="avatar-section">
+              <div class="avatar-preview" id="avatarPreview">
+                <img id="avatarImg" src="" alt="Avatar" style="display: none;">
+                <span id="avatarInitial" class="avatar-initial">?</span>
+              </div>
+              <label class="avatar-btn" for="avatarInput">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+              </label>
+              <input type="text" id="avatarInput" placeholder="Google profile picture URL (optional)">
+            </div>
+            <div class="input-group">
+              <input type="text" id="playerName" placeholder="Your nickname" maxlength="15" required>
+            </div>
+            <div class="input-hint">Enter your nickname to play</div>
           </div>
         </div>
-        <div id="unitControls" class="unit-controls">
-          <span>Units: <span id="unitCount">0</span></span>
-          <button id="sendUnitsBtn" class="btn btn-attack" disabled>SEND HALF</button>
+
+        <div class="menu-buttons">
+          <button id="createRoomBtn" class="btn btn-primary btn-large">
+            <span class="btn-icon">🎮</span>
+            Create Room
+          </button>
+          <div class="divider">
+            <span>or join a room</span>
+          </div>
+          <div class="join-section">
+            <input type="text" id="roomCode" placeholder="Enter room code" maxlength="6">
+            <button id="joinRoomBtn" class="btn btn-secondary">
+              Join Room
+            </button>
+          </div>
+        </div>
+
+        <div class="menu-footer">
+          <p>Real-time multiplayer strategy game</p>
         </div>
       </div>
+    </div>
 
-      <div class="minimap-container">
-        <canvas id="minimap"></canvas>
-      </div>
+    <!-- LOBBY SCREEN -->
+    <div id="lobby" class="screen">
+      <div class="lobby-container">
+        <div class="lobby-header">
+          <div class="room-info">
+            <div class="room-code-display">
+              <span class="label">Room Code</span>
+              <span class="code" id="displayRoomCode">------</span>
+            </div>
+            <button id="copyCodeBtn" class="btn-icon-small" title="Copy code">
+              📋
+            </button>
+          </div>
+          <button id="leaveRoomBtn" class="btn btn-danger btn-small">Leave</button>
+        </div>
 
-      <div id="killFeed" class="kill-feed"></div>
+        <div class="lobby-content">
+          <div class="players-section">
+            <h3>Players <span id="playerCountBadge">0/4</span></h3>
+            <div id="playersList" class="players-grid"></div>
+          </div>
 
-      <div id="chatContainer" class="chat-container">
-        <div id="chatMessages" class="chat-messages"></div>
-        <input type="text" id="chatInput" placeholder="Press Enter to chat">
+          <div class="lobby-actions">
+            <div id="countdownDisplay" class="countdown hidden">
+              <span class="countdown-number" id="countdownNumber">20</span>
+              <span class="countdown-text">Game starts in</span>
+            </div>
+            <button id="startGameBtn" class="btn btn-primary btn-large">
+              <span class="btn-icon">🚀</span>
+              Start Game
+            </button>
+          </div>
+        </div>
+
+        <div class="invite-section">
+          <h3>Invite Friends</h3>
+          <p>Share this code with your friends</p>
+          <div class="invite-box">
+            <span id="inviteCode">------</span>
+            <button id="copyInviteBtn" class="btn btn-copy">Copy</button>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div id="gameOver" class="screen">
-    <div class="gameover-container">
-      <h1 id="winnerText">VICTORY!</h1>
-      <div id="finalStats" class="final-stats"></div>
-      <button id="playAgainBtn" class="btn btn-primary">PLAY AGAIN</button>
+    <!-- GAME SCREEN -->
+    <div id="game" class="screen">
+      <div class="game-container">
+        <div class="top-bar">
+          <div class="player-info">
+            <div class="player-profile">
+              <img id="playerPicture" class="player-avatar" src="" alt="">
+              <span id="playerNameDisplay" class="player-name"></span>
+            </div>
+            <div class="player-stats">
+              <div class="stat">
+                <span class="stat-label">Bases</span>
+                <span id="baseCount" class="stat-value">0</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Units</span>
+                <span id="unitCount" class="stat-value">0</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Kills</span>
+                <span id="killCount" class="stat-value">0</span>
+              </div>
+            </div>
+          </div>
+          <div class="game-timer">
+            <span id="timer">5:00</span>
+          </div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div class="bottom-bar">
+          <div id="selectionInfo" class="selection-info hidden">
+            <div class="base-info">
+              <span id="selectedBaseInfo">Base Lv.1</span>
+            </div>
+            <div class="action-buttons">
+              <button id="upgradeBtn" class="btn btn-upgrade">Upgrade (U)</button>
+            </div>
+          </div>
+          <div class="unit-controls">
+            <span>Your Units: <strong id="yourUnits">0</strong></span>
+            <button id="sendUnitsBtn" class="btn btn-attack" disabled>Send Units</button>
+          </div>
+        </div>
+
+        <div class="minimap-container">
+          <canvas id="minimap"></canvas>
+        </div>
+
+        <div id="killFeed" class="kill-feed"></div>
+
+        <div class="chat-container">
+          <div id="chatMessages" class="chat-messages"></div>
+          <input type="text" id="chatInput" placeholder="Press Enter to chat">
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div id="gameOver" class="screen">
+      <div class="gameover-container">
+        <div class="result-icon" id="resultIcon">🏆</div>
+        <h1 id="winnerText">VICTORY!</h1>
+        <div id="finalStats" class="final-stats"></div>
+        <button id="playAgainBtn" class="btn btn-primary btn-large">Play Again</button>
+        <button id="backToMenuBtn" class="btn btn-secondary">Back to Menu</button>
+      </div>
     </div>
   </div>
 

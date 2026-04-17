@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,13 +21,17 @@ const UNIT_HEALTH = 10;
 const UNIT_DAMAGE = 5;
 const UNIT_RADIUS = 8;
 const BASE_HEALTH = 100;
-const ATTACK_RANGE = 30;
 const MAX_UNITS = 50;
 const COUNTDOWN_TIME = 20000;
 
+function generateRoomCode() {
+  return crypto.randomBytes(3).toString('hex').toUpperCase();
+}
+
 class GameRoom {
-  constructor(id) {
-    this.id = id;
+  constructor(code) {
+    this.code = code;
+    this.id = `room_${code}`;
     this.players = new Map();
     this.bases = [];
     this.units = [];
@@ -39,8 +44,6 @@ class GameRoom {
     this.countdownStarted = false;
     this.countdownStartTime = null;
     this.countdownDuration = COUNTDOWN_TIME;
-    
-    this.generateMap();
   }
 
   generateMap() {
@@ -92,13 +95,14 @@ class GameRoom {
     }
   }
 
-  addPlayer(socketId, name) {
+  addPlayer(socketId, name, picture) {
     const playerIndex = this.players.size;
     if (playerIndex >= 4) return null;
 
     const player = {
       id: socketId,
       name: name || `Player ${playerIndex + 1}`,
+      picture: picture || null,
       color: PLAYER_COLORS[playerIndex],
       units: 0,
       baseCount: 0,
@@ -123,12 +127,6 @@ class GameRoom {
     }
   }
 
-  startGame() {
-    this.gameStarted = true;
-    this.startTime = Date.now();
-    io.to(this.id).emit('game_start');
-  }
-
   getSpawnRate(base) {
     const baseMultiplier = base.level === 3 ? 2 : (base.level === 2 ? 1.5 : 1);
     return base.ownerId ? UNIT_SPAWN_RATE / baseMultiplier : (base.spawnRate || 3000);
@@ -139,10 +137,10 @@ class GameRoom {
       const now = Date.now();
       const elapsed = now - this.countdownStartTime;
       const remaining = Math.max(0, this.countdownDuration - elapsed);
-      
-      io.to(this.id).emit('countdown', { timeRemaining: remaining });
-      
-      if (remaining <= 0 || this.players.size >= 4 || (this.players.size >= 2 && !this.countdownStarted)) {
+
+      io.to(this.id).emit('countdown', { timeRemaining: remaining, playerCount: this.players.size });
+
+      if (remaining <= 0 || this.players.size >= 4 || this.players.size >= 2) {
         this.gameStarted = true;
         this.startTime = Date.now();
         this.countdownStarted = false;
@@ -151,7 +149,7 @@ class GameRoom {
       }
       return;
     }
-    
+
     if (!this.gameStarted || this.gameOver) return;
 
     const now = Date.now();
@@ -178,7 +176,7 @@ class GameRoom {
           const angle = Math.random() * Math.PI * 2;
           const offsetX = Math.cos(angle) * (base.radius + 10);
           const offsetY = Math.sin(angle) * (base.radius + 10);
-          
+
           this.units.push({
             id: `unit_${Date.now()}_${Math.random()}`,
             x: base.x + offsetX,
@@ -211,8 +209,8 @@ class GameRoom {
         if (dist <= targetBase.radius + UNIT_RADIUS) {
           if (targetBase.ownerId !== unit.ownerId) {
             targetBase.health -= UNIT_DAMAGE;
-            io.to(this.id).emit('damage', { 
-              baseId: targetBase.id, 
+            io.to(this.id).emit('damage', {
+              baseId: targetBase.id,
               damage: UNIT_DAMAGE,
               x: targetBase.x,
               y: targetBase.y
@@ -270,13 +268,8 @@ class GameRoom {
     const ownedBases = this.bases.filter(b => b.ownerId === playerId);
     if (ownedBases.length === 0) return;
 
-    const sourceBase = ownedBases[Math.floor(Math.random() * ownedBases.length)];
-
     availableUnits.forEach(unit => {
-      const dx = targetX - unit.x;
-      const dy = targetY - unit.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      unit.angle = Math.atan2(dy, dx);
+      unit.angle = Math.atan2(targetY - unit.y, targetX - unit.x);
 
       const targetBase = this.bases.find(b => {
         const bdx = b.x - targetX;
@@ -352,6 +345,7 @@ class GameRoom {
       players.push({
         id: p.id,
         name: p.name,
+        picture: p.picture,
         color: p.color,
         baseCount: this.bases.filter(b => b.ownerId === p.id).length,
         unitCount: this.units.filter(u => u.ownerId === p.id).length,
@@ -360,6 +354,7 @@ class GameRoom {
     });
 
     return {
+      roomCode: this.code,
       players,
       countdown: this.countdownStarted ? {
         timeRemaining: Math.max(0, this.countdownDuration - (Date.now() - this.countdownStartTime)),
@@ -388,25 +383,30 @@ class GameRoom {
       winner: this.winner ? {
         id: this.winner.id,
         name: this.winner.name,
+        picture: this.winner.picture,
         color: this.winner.color
       } : null,
-      timeRemaining: Math.max(0, GAME_DURATION - (Date.now() - this.startTime))
+      timeRemaining: this.startTime ? Math.max(0, GAME_DURATION - (Date.now() - this.startTime)) : GAME_DURATION
     };
   }
 }
 
 const rooms = new Map();
-let currentRoomId = 1;
+const roomCodes = new Map();
 
-function getAvailableRoom() {
-  for (const [id, room] of rooms) {
-    if (!room.gameStarted && room.players.size < 4) {
-      return room;
-    }
+function getOrCreateRoom(code) {
+  if (code && roomCodes.has(code.toUpperCase())) {
+    return roomCodes.get(code.toUpperCase());
   }
-
-  const newRoom = new GameRoom(`room_${currentRoomId++}`);
+  
+  let newCode = code || generateRoomCode();
+  while (roomCodes.has(newCode)) {
+    newCode = generateRoomCode();
+  }
+  
+  const newRoom = new GameRoom(newCode);
   rooms.set(newRoom.id, newRoom);
+  roomCodes.set(newCode, newRoom);
   return newRoom;
 }
 
@@ -415,12 +415,52 @@ io.on('connection', (socket) => {
   let currentRoom = null;
   let currentPlayer = null;
 
-  socket.on('join_game', (data) => {
-    const room = getAvailableRoom();
-    const player = room.addPlayer(socket.id, data.name);
+  socket.on('create_room', (data) => {
+    const room = getOrCreateRoom(null);
+    const player = room.addPlayer(socket.id, data.name, data.picture);
 
-    if (!player) {
+    currentRoom = room;
+    currentPlayer = player;
+    socket.join(room.id);
+
+    socket.emit('room_joined', {
+      playerId: socket.id,
+      player: player,
+      roomCode: room.code,
+      roomId: room.id,
+      playerCount: room.players.size,
+      isHost: true
+    });
+
+    io.to(room.id).emit('player_joined', {
+      player: player,
+      playerCount: room.players.size,
+      isHost: true
+    });
+  });
+
+  socket.on('join_room', (data) => {
+    const code = data.code?.toUpperCase();
+    if (!code) {
+      socket.emit('join_error', { message: 'Enter a room code' });
+      return;
+    }
+
+    const room = getOrCreateRoom(code);
+    
+    if (room.gameStarted) {
+      socket.emit('join_error', { message: 'Game already started' });
+      return;
+    }
+
+    if (room.players.size >= 4) {
       socket.emit('join_error', { message: 'Room is full' });
+      return;
+    }
+
+    const player = room.addPlayer(socket.id, data.name, data.picture);
+    if (!player) {
+      socket.emit('join_error', { message: 'Cannot join room' });
       return;
     }
 
@@ -428,16 +468,19 @@ io.on('connection', (socket) => {
     currentPlayer = player;
     socket.join(room.id);
 
-    socket.emit('join_success', {
+    socket.emit('room_joined', {
       playerId: socket.id,
       player: player,
+      roomCode: room.code,
       roomId: room.id,
-      playerCount: room.players.size
+      playerCount: room.players.size,
+      isHost: false
     });
 
     io.to(room.id).emit('player_joined', {
       player: player,
-      playerCount: room.players.size
+      playerCount: room.players.size,
+      isHost: false
     });
 
     if (room.players.size >= 2 && !room.countdownStarted) {
@@ -445,6 +488,17 @@ io.on('connection', (socket) => {
       room.countdownStartTime = Date.now();
       room.countdownDuration = COUNTDOWN_TIME;
       io.to(room.id).emit('countdown', { timeRemaining: COUNTDOWN_TIME, playerCount: room.players.size });
+    }
+  });
+
+  socket.on('start_countdown', () => {
+    if (!currentRoom || currentRoom.gameStarted || currentRoom.countdownStarted) return;
+    
+    if (currentRoom.players.size >= 2) {
+      currentRoom.countdownStarted = true;
+      currentRoom.countdownStartTime = Date.now();
+      currentRoom.countdownDuration = COUNTDOWN_TIME;
+      io.to(currentRoom.id).emit('countdown', { timeRemaining: COUNTDOWN_TIME, playerCount: currentRoom.players.size });
     }
   });
 
@@ -464,6 +518,7 @@ io.on('connection', (socket) => {
     io.to(currentRoom.id).emit('chat_message', {
       playerId: socket.id,
       playerName: currentPlayer.name,
+      playerPicture: currentPlayer.picture,
       playerColor: currentPlayer.color,
       message: data.message
     });
@@ -484,6 +539,7 @@ io.on('connection', (socket) => {
       });
 
       if (currentRoom.players.size === 0) {
+        roomCodes.delete(currentRoom.code);
         rooms.delete(currentRoom.id);
       }
     }

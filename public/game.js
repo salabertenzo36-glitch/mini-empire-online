@@ -1,3 +1,4 @@
+const PLAYER_COLORS = ['#e63946', '#4361ee', '#2a9d8f', '#f4a261'];
 const socket = io();
 
 const CANVAS_WIDTH = 1200;
@@ -383,13 +384,33 @@ socket.on('player_left', (data) => {
   elements.lobbyStatus.textContent = `Waiting... (${data.playerCount}/4 players)`;
 });
 
+socket.on('countdown', (data) => {
+  showScreen('lobby');
+  updateCountdown(data);
+});
+
 socket.on('game_start', () => {
   showScreen('game');
 });
 
 socket.on('game_state', (state) => {
-  if (currentScreen !== 'game') return;
   gameState = state;
+  
+  if (state.countdown && !state.gameStarted) {
+    showScreen('lobby');
+    updateCountdown({ 
+      timeRemaining: state.countdown.timeRemaining,
+      playerCount: state.countdown.playerCount
+    });
+    return;
+  }
+  
+  if (state.gameStarted && currentScreen === 'lobby') {
+    showScreen('game');
+  }
+  
+  if (currentScreen !== 'game') return;
+  
   drawGame();
   drawMinimap();
   updateUI();
@@ -482,6 +503,32 @@ function updateLobby(data) {
   }
 
   elements.lobbyStatus.textContent = `Waiting for players... (${data.playerCount}/4)`;
+}
+
+function updateCountdown(data) {
+  elements.lobbyPlayers.innerHTML = '';
+  
+  for (let i = 0; i < 4; i++) {
+    const card = document.createElement('div');
+    card.className = 'player-card';
+    
+    const player = data.players?.[i] || (i < data.playerCount ? { name: 'Player ' + (i + 1), color: PLAYER_COLORS[i] } : null);
+    
+    if (player) {
+      card.classList.add('ready');
+      card.innerHTML = `<div class="player-name" style="color:${player.color}">${player.name}</div>`;
+    } else {
+      card.innerHTML = `<div class="player-name" style="color:#666">Waiting...</div>`;
+    }
+    
+    elements.lobbyPlayers.appendChild(card);
+  }
+
+  const seconds = Math.ceil(data.timeRemaining / 1000);
+  elements.lobbyStatus.innerHTML = `
+    <span style="color: #ffd700; font-size: 2rem;">${seconds}</span>
+    <br>Starting soon... (${data.playerCount}/4 players)
+  `;
 }
 
 function showGameOver() {

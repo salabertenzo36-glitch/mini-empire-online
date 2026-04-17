@@ -22,6 +22,7 @@ const UNIT_RADIUS = 8;
 const BASE_HEALTH = 100;
 const ATTACK_RANGE = 30;
 const MAX_UNITS = 50;
+const COUNTDOWN_TIME = 20000;
 
 class GameRoom {
   constructor(id) {
@@ -35,6 +36,9 @@ class GameRoom {
     this.startTime = null;
     this.lastTick = Date.now();
     this.neutralBaseId = 1000;
+    this.countdownStarted = false;
+    this.countdownStartTime = null;
+    this.countdownDuration = COUNTDOWN_TIME;
     
     this.generateMap();
   }
@@ -131,6 +135,23 @@ class GameRoom {
   }
 
   update() {
+    if (!this.gameStarted && this.countdownStarted) {
+      const now = Date.now();
+      const elapsed = now - this.countdownStartTime;
+      const remaining = Math.max(0, this.countdownDuration - elapsed);
+      
+      io.to(this.id).emit('countdown', { timeRemaining: remaining });
+      
+      if (remaining <= 0 || this.players.size >= 4 || (this.players.size >= 2 && !this.countdownStarted)) {
+        this.gameStarted = true;
+        this.startTime = Date.now();
+        this.countdownStarted = false;
+        this.generateMap();
+        io.to(this.id).emit('game_start');
+      }
+      return;
+    }
+    
     if (!this.gameStarted || this.gameOver) return;
 
     const now = Date.now();
@@ -340,6 +361,10 @@ class GameRoom {
 
     return {
       players,
+      countdown: this.countdownStarted ? {
+        timeRemaining: Math.max(0, this.countdownDuration - (Date.now() - this.countdownStartTime)),
+        playerCount: this.players.size
+      } : null,
       bases: this.bases.map(b => ({
         id: b.id,
         x: b.x,
@@ -415,13 +440,11 @@ io.on('connection', (socket) => {
       playerCount: room.players.size
     });
 
-    if (room.players.size >= 2) {
-      setTimeout(() => {
-        if (!room.gameStarted && room.players.size >= 2) {
-          room.generateMap();
-          room.startGame();
-        }
-      }, 3000);
+    if (room.players.size >= 2 && !room.countdownStarted) {
+      room.countdownStarted = true;
+      room.countdownStartTime = Date.now();
+      room.countdownDuration = COUNTDOWN_TIME;
+      io.to(room.id).emit('countdown', { timeRemaining: COUNTDOWN_TIME, playerCount: room.players.size });
     }
   });
 

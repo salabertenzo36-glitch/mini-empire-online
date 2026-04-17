@@ -1,0 +1,14 @@
+{
+  "name": "mini-empire-online",
+  "version": "1.0.0",
+  "description": "Real-time multiplayer strategy game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "playwright": "^1.59.1",
+    "socket.io": "^4.7.2"
+  }
+}

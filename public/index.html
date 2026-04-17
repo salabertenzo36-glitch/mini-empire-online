@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini Empire Online</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="menu" class="screen active">
+    <div class="menu-container">
+      <h1 class="title">MINI EMPIRE</h1>
+      <p class="subtitle">Conquer the battlefield</p>
+      <div class="input-group">
+        <input type="text" id="playerName" placeholder="Enter your name" maxlength="15">
+        <button id="joinBtn" class="btn btn-primary">JOIN BATTLE</button>
+      </div>
+      <div id="menuStatus" class="status"></div>
+    </div>
+  </div>
+
+  <div id="lobby" class="screen">
+    <div class="lobby-container">
+      <h2>WAITING FOR PLAYERS</h2>
+      <div id="lobbyPlayers" class="lobby-players"></div>
+      <div id="lobbyStatus" class="status"></div>
+    </div>
+  </div>
+
+  <div id="game" class="screen">
+    <div class="game-container">
+      <div class="top-bar">
+        <div class="player-info">
+          <span id="playerNameDisplay" class="player-name"></span>
+          <span id="playerStats" class="player-stats"></span>
+        </div>
+        <div class="game-timer">
+          <span id="timer">5:00</span>
+        </div>
+      </div>
+
+      <canvas id="gameCanvas"></canvas>
+
+      <div class="bottom-bar">
+        <div id="selectionInfo" class="selection-info hidden">
+          <span id="selectedBaseInfo"></span>
+          <div class="action-buttons">
+            <button id="upgradeBtn" class="btn btn-upgrade">UPGRADE (U)</button>
+          </div>
+        </div>
+        <div id="unitControls" class="unit-controls">
+          <span>Units: <span id="unitCount">0</span></span>
+          <button id="sendUnitsBtn" class="btn btn-attack" disabled>SEND HALF</button>
+        </div>
+      </div>
+
+      <div class="minimap-container">
+        <canvas id="minimap"></canvas>
+      </div>
+
+      <div id="killFeed" class="kill-feed"></div>
+
+      <div id="chatContainer" class="chat-container">
+        <div id="chatMessages" class="chat-messages"></div>
+        <input type="text" id="chatInput" placeholder="Press Enter to chat">
+      </div>
+    </div>
+  </div>
+
+  <div id="gameOver" class="screen">
+    <div class="gameover-container">
+      <h1 id="winnerText">VICTORY!</h1>
+      <div id="finalStats" class="final-stats"></div>
+      <button id="playAgainBtn" class="btn btn-primary">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
